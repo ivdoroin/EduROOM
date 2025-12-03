@@ -67,18 +67,24 @@ def show_login(page):
             page.update()
 
     logo = ft.Container(
-        content=ft.Column([
-            ft.Icon(ICONS.SCHOOL, size=80, color="#004B87"),
-            ft.Text(
-                "EduROOM",
-                size=48,
-                weight=ft.FontWeight.BOLD,
-                spans=[
-                    ft.TextSpan("Edu", style=ft.TextStyle(color="#7BC043")),
-                    ft.TextSpan("ROOM", style=ft.TextStyle(color="#00A0DF"))
-                ]
-            )
-        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=5),
+        content=ft.Column(
+            [
+                ft.Image(
+                    src="assets/images/cspc-logo.png",
+                    width=120,
+                    height=120,
+                    fit=ft.ImageFit.CONTAIN
+                ),
+                ft.Image(
+                    src="assets/images/EduROOM-logo.png",
+                    width=260,
+                    height=80,
+                    fit=ft.ImageFit.CONTAIN
+                )
+            ],
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            spacing=5
+        )
     )
     
     page.controls.clear()
