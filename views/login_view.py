@@ -1,12 +1,11 @@
 import flet as ft
 from utils.config import ICONS, COLORS
-from data.storage import authenticate_user
+from data.models import UserModel, ActivityLogModel
 from views.dashboard_view import show_dashboard
 
 def show_login(page):
-    """Display the login page matching the wireframe design"""
+    """Display the login page with database authentication"""
     
-    # Text fields matching wireframe
     email_field = ft.TextField(
         label="CSPC Email",
         hint_text="yourname@my.cspc.edu.ph",
@@ -37,39 +36,36 @@ def show_login(page):
     )
     
     error_text = ft.Text("", color="red", size=12)
-    
-    # Helper text (remove this when deploying)
-    helper_text = ft.Text(
-    "Test accounts (Email | ID Number | Password):\n"
-    "• admin@cspc.edu.ph | 00000000 | admin123\n"
-    "• profsmith@my.cspc.edu.ph | 20231001 | faculty123\n"
-    "• johndoe@my.cspc.edu.ph | 25123456 | student123",
-    size=10,
-    color=COLORS.GREY if hasattr(COLORS, "GREY") else "grey",
-    text_align=ft.TextAlign.CENTER,
-    italic=True
-)
 
     def login_click(e):
+        email = email_field.value.strip()
         id_number = id_number_field.value.strip()
         password = password_field.value
         
-        if not id_number or not password:
-            error_text.value = "Please fill in all required fields"
+        # Validate all fields are filled
+        if not email or not id_number or not password:
+            error_text.value = "Please fill in all fields"
             page.update()
             return
         
-        # Authenticate using ID number
-        username, user_data = authenticate_user(id_number, password)
+        # Authenticate using database - check both email AND id_number
+        user = UserModel.authenticate_with_email(email, id_number, password)
         
-        if user_data:
+        if user:
+            # Log the login activity
+            ActivityLogModel.log_activity(user['id'], "User logged in")
+            
+            # Store user info in page session
+            page.session.set("user_id", user['id'])
+            page.session.set("user_role", user['role'])
+            page.session.set("user_name", user['full_name'])
+            
             # Login successful
-            show_dashboard(page, username, user_data["role"], user_data["name"])
+            show_dashboard(page, user['id'], user['role'], user['full_name'])
         else:
-            error_text.value = "Invalid ID number or password"
+            error_text.value = "Invalid credentials. Please check your email, ID number, and password."
             page.update()
 
-    # Logo placeholder
     logo = ft.Container(
         content=ft.Column([
             ft.Icon(ICONS.SCHOOL, size=80, color="#004B87"),
@@ -113,11 +109,9 @@ def show_login(page):
                     ),
                     on_click=login_click
                 ),
-                ft.Container(height=10),
-                helper_text
             ], 
             horizontal_alignment=ft.CrossAxisAlignment.CENTER,
-            spacing=5),  # THIS IS THE KEY - SMALL SPACING!
+            spacing=5),
             padding=40,
             expand=True,
             alignment=ft.alignment.center

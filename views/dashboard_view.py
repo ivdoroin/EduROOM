@@ -1,37 +1,44 @@
 import flet as ft
 from utils.config import ICONS, COLORS
-from data.storage import CLASSROOMS
+from data.models import ClassroomModel
 
-def show_dashboard(page, username, role, name):
-    """Display the main dashboard with classroom list"""
+def show_dashboard(page, user_id, role, name):
+    """Display the main dashboard with classroom list from database"""
     
     def logout_click(e):
         from views.login_view import show_login
+        page.session.clear()
         show_login(page)
     
     def reserve_classroom(classroom_id):
         from views.reservation_view import show_reservation_form
-        show_reservation_form(page, username, role, name, classroom_id)
+        show_reservation_form(page, user_id, role, name, classroom_id)
     
     def view_my_reservations(e):
         from views.my_reservations_view import show_my_reservations
-        show_my_reservations(page, username, role, name)
+        show_my_reservations(page, user_id, role, name)
     
     def view_admin_panel(e):
         from views.admin_view import show_admin_panel
-        show_admin_panel(page, username, role, name)
+        show_admin_panel(page, user_id, role, name)
+    
+    # Get classrooms from database
+    classrooms = ClassroomModel.get_all_classrooms()
     
     # Create classroom cards
     classroom_cards = []
-    for room in CLASSROOMS:
+    for room in classrooms:
         status_color = COLORS.GREEN if room["status"] == "Available" else "orange"
         
         # Determine button behavior based on role
         if role == "student":
-            # Students can only view - no reserve button
-            action_button = ft.Text("View Only", size=12, italic=True, color=COLORS.GREY if hasattr(COLORS, "GREY") else "grey")
+            action_button = ft.Text(
+                "View Only", 
+                size=12, 
+                italic=True, 
+                color=COLORS.GREY if hasattr(COLORS, "GREY") else "grey"
+            )
         elif role == "faculty":
-            # Faculty can reserve
             action_button = ft.ElevatedButton(
                 "Reserve",
                 icon=ICONS.BOOK_ONLINE,
@@ -39,7 +46,6 @@ def show_dashboard(page, username, role, name):
                 disabled=(room["status"] != "Available")
             )
         else:  # admin
-            # Admin can see status but reserves through approval system
             action_button = ft.Text("Manage via Admin Panel", size=11, italic=True)
         
         card = ft.Card(
@@ -47,7 +53,7 @@ def show_dashboard(page, username, role, name):
                 content=ft.Column([
                     ft.ListTile(
                         leading=ft.Icon(ICONS.MEETING_ROOM),
-                        title=ft.Text(room["name"], weight=ft.FontWeight.BOLD),
+                        title=ft.Text(room["room_name"], weight=ft.FontWeight.BOLD),
                         subtitle=ft.Text(f"{room['building']} • Capacity: {room['capacity']}"),
                     ),
                     ft.Container(

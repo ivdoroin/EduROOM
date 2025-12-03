@@ -1,30 +1,41 @@
 import flet as ft
 from utils.config import ICONS, COLORS
-from data.storage import get_all_reservations, approve_reservation, reject_reservation
+from data.models import ReservationModel, ActivityLogModel
 
-def show_admin_panel(page, username, role, name):
-    """Display admin panel for managing reservations"""
+def show_admin_panel(page, user_id, role, name):
+    """Display admin panel for managing reservations from database"""
     
     if role != "admin":
         return
     
     def back_to_dashboard(e):
         from views.dashboard_view import show_dashboard
-        show_dashboard(page, username, role, name)
+        show_dashboard(page, user_id, role, name)
     
     def refresh_panel():
         """Refresh the admin panel to show updated data"""
-        show_admin_panel(page, username, role, name)
+        show_admin_panel(page, user_id, role, name)
     
-    def handle_approve(reservation_id):
-        approve_reservation(reservation_id)
+    def handle_approve(reservation_id, room_name, requester):
+        ReservationModel.approve_reservation(reservation_id)
+        ActivityLogModel.log_activity(
+            user_id, 
+            "Approved reservation", 
+            f"Approved {room_name} reservation by {requester}"
+        )
         refresh_panel()
     
-    def handle_reject(reservation_id):
-        reject_reservation(reservation_id)
+    def handle_reject(reservation_id, room_name, requester):
+        ReservationModel.reject_reservation(reservation_id)
+        ActivityLogModel.log_activity(
+            user_id, 
+            "Rejected reservation", 
+            f"Rejected {room_name} reservation by {requester}"
+        )
         refresh_panel()
     
-    reservations = get_all_reservations()
+    # Get all reservations from database
+    reservations = ReservationModel.get_all_reservations()
     pending = [r for r in reservations if r["status"] == "pending"]
     approved = [r for r in reservations if r["status"] == "approved"]
     rejected = [r for r in reservations if r["status"] == "rejected"]
@@ -39,11 +50,16 @@ def show_admin_panel(page, username, role, name):
         }
         config = status_config.get(res["status"], status_config["pending"])
         
+        # Format date and time
+        res_date = res["reservation_date"].strftime('%Y-%m-%d') if hasattr(res["reservation_date"], 'strftime') else str(res["reservation_date"])
+        start = str(res["start_time"])
+        end = str(res["end_time"])
+        
         card_content = [
             ft.ListTile(
                 leading=ft.Icon(ICONS.MEETING_ROOM),
-                title=ft.Text(res["classroom"], weight=ft.FontWeight.BOLD),
-                subtitle=ft.Text(f"By: {res['user']} • {res['date']} • {res['start_time']}-{res['end_time']}"),
+                title=ft.Text(res["room_name"], weight=ft.FontWeight.BOLD),
+                subtitle=ft.Text(f"By: {res['full_name']} ({res['email']}) • {res_date} • {start}-{end}"),
             ),
             ft.Container(
                 content=ft.Column([
@@ -64,12 +80,12 @@ def show_admin_panel(page, username, role, name):
                             icon=ICONS.CHECK,
                             color="white",
                             bgcolor=COLORS.GREEN if hasattr(COLORS, "GREEN") else "green",
-                            on_click=lambda e, rid=res["id"]: handle_approve(rid)
+                            on_click=lambda e, rid=res["id"], rn=res["room_name"], req=res["full_name"]: handle_approve(rid, rn, req)
                         ),
                         ft.OutlinedButton(
                             "Reject",
                             icon=ICONS.CLOSE,
-                            on_click=lambda e, rid=res["id"]: handle_reject(rid)
+                            on_click=lambda e, rid=res["id"], rn=res["room_name"], req=res["full_name"]: handle_reject(rid, rn, req)
                         )
                     ], spacing=10),
                     padding=ft.padding.only(left=15, right=15, bottom=10)

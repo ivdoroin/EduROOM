@@ -1,25 +1,29 @@
 import flet as ft
 from utils.config import ICONS, COLORS
-from data.storage import get_user_reservations
+from data.models import ReservationModel
 
-def show_my_reservations(page, username, role, name):
-    """Display faculty member's reservations"""
+def show_my_reservations(page, user_id, role, name):
+    """Display faculty member's reservations from database"""
     
     if role != "faculty":
         return
     
     def back_to_dashboard(e):
         from views.dashboard_view import show_dashboard
-        show_dashboard(page, username, role, name)
+        show_dashboard(page, user_id, role, name)
     
-    reservations = get_user_reservations(username)
+    # Get reservations from database
+    reservations = ReservationModel.get_user_reservations(user_id)
     
     # Create reservation cards
     reservation_cards = []
     if not reservations:
         reservation_cards.append(
             ft.Container(
-                content=ft.Text("No reservations yet", color=COLORS.GREY if hasattr(COLORS, "GREY") else "grey"),
+                content=ft.Text(
+                    "No reservations yet", 
+                    color=COLORS.GREY if hasattr(COLORS, "GREY") else "grey"
+                ),
                 padding=20
             )
         )
@@ -29,17 +33,23 @@ def show_my_reservations(page, username, role, name):
             status_config = {
                 "pending": {"color": "orange", "icon": ICONS.HOURGLASS_EMPTY, "text": "Pending Approval"},
                 "approved": {"color": COLORS.GREEN if hasattr(COLORS, "GREEN") else "green", "icon": ICONS.CHECK_CIRCLE, "text": "Approved"},
-                "rejected": {"color": "red", "icon": ICONS.CANCEL, "text": "Rejected"}
+                "rejected": {"color": "red", "icon": ICONS.CANCEL, "text": "Rejected"},
+                "cancelled": {"color": "grey", "icon": ICONS.BLOCK, "text": "Cancelled"}
             }
             config = status_config.get(res["status"], status_config["pending"])
+            
+            # Format date and time
+            res_date = res["reservation_date"].strftime('%Y-%m-%d') if hasattr(res["reservation_date"], 'strftime') else str(res["reservation_date"])
+            start = str(res["start_time"])
+            end = str(res["end_time"])
             
             card = ft.Card(
                 content=ft.Container(
                     content=ft.Column([
                         ft.ListTile(
                             leading=ft.Icon(ICONS.MEETING_ROOM),
-                            title=ft.Text(res["classroom"], weight=ft.FontWeight.BOLD),
-                            subtitle=ft.Text(f"{res['date']} • {res['start_time']} - {res['end_time']}"),
+                            title=ft.Text(res["room_name"], weight=ft.FontWeight.BOLD),
+                            subtitle=ft.Text(f"{res['building']} • {res_date} • {start} - {end}"),
                         ),
                         ft.Container(
                             content=ft.Column([
