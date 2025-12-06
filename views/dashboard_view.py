@@ -1,188 +1,39 @@
 import flet as ft
 from utils.config import ICONS, COLORS
-from data.models import ClassroomModel
+from data.models import ClassroomModel, ReservationModel
 from views.schedule_view import show_classroom_schedule
-from views.profile_view import show_profile
+from components.classroom_filter import ClassroomAvailabilityFilter
+from components.app_header import create_app_header
 
 def show_dashboard(page, user_id, role, name):
-    """Display main dashboard based on roles"""
+    """Display main dashboard with availability filtering"""
 
-    def logout_click(e):
-        from views.login_view import show_login
-        close_drawer(e)
-        page.session.clear()
-        show_login(page)
+    # Create the header and drawer
+    header, drawer = create_app_header(page, user_id, role, name, current_page="classrooms")
 
-    def open_drawer(e):
-        page.open(drawer)
-    
-    def close_drawer(e):
-        page.close(drawer)
-    
-    def toggle_theme(e):
-        # Toggle between light and dark theme
-        page.theme_mode = ft.ThemeMode.DARK if page.theme_mode == ft.ThemeMode.LIGHT else ft.ThemeMode.LIGHT
-        page.update()
-    
-    def open_profile(e):
-        close_drawer(e)
-        show_profile(page, user_id, role, name)
-    
-    # Create settings drawer
-    drawer = ft.NavigationDrawer(
-        position=ft.NavigationDrawerPosition.END,
-        controls=[
-            ft.Container(
-                content=ft.Row([
-                    ft.Icon(ft.Icons.PERSON, size=40),
-                    ft.Column([
-                        ft.Text(name, size=16, weight=ft.FontWeight.BOLD),
-                        ft.Text(role.upper(), size=12, color=ft.Colors.GREY_600)
-                    ], spacing=2)
-                ], spacing=15),
-                padding=20,
-            ),
-            ft.Divider(thickness=2),
-            ft.ListTile(
-                leading=ft.Icon(ft.Icons.PERSON),
-                title=ft.Text("Profile"),
-                on_click=open_profile
-            ),
-            ft.ListTile(
-                leading=ft.Icon(ft.Icons.PALETTE),
-                title=ft.Text("Toggle Theme"),
-                on_click=toggle_theme
-            ),
-            ft.ListTile(
-                leading=ft.Icon(ft.Icons.LOGOUT),
-                title=ft.Text("Logout"),
-                on_click=logout_click
-            ),
-        ft.Container(height=20),
-        ],
-    )
+    # State variables
+    all_classrooms = []
+    filtered_by_availability = False
+    current_search_query = ""
 
     def open_reservation_form(classroom_id):
         from views.reservation_view import show_reservation_form
         show_reservation_form(page, user_id, role, name, classroom_id)
 
-    def open_my_reservations(e):
-        from views.my_reservations_view import show_my_reservations
-        show_my_reservations(page, user_id, role, name)
-
-    def open_admin_panel(e):
-        from views.admin_view import show_admin_panel
-        show_admin_panel(page, user_id, role, name)
-
-    def open_analytics(e):
-        from views.analytics_view import show_analytics_dashboard
-        show_analytics_dashboard(page, user_id, role, name)
-
-    def make_header_block(current_page="classrooms"):
-        logo = ft.Image(
-            src="../assets/images/EduROOM-logo.png", 
-            width=160,
-            fit=ft.ImageFit.CONTAIN
-        )
-
-        # nav button handlers
-        def go_classrooms(e):
-            show_dashboard(page, user_id, role, name)
-
-        def go_reservations(e):
-            if role == "faculty":
-                open_my_reservations(e)
-            elif role == "admin":
-                open_admin_panel(e)
-
-        def go_analytics(e):
-            if role == "admin":
-                open_analytics(e)
-
-        # enable/disable nav items by role
-        reservations_enabled = role in ("faculty", "admin")
-        analytics_enabled = role == "admin"
-
-        active_style = ft.ButtonStyle(
-            color=ft.Colors.BLUE,
-            bgcolor=ft.Colors.BLUE_100,
-        )
-
-        navbar_block = ft.Row(
-            [
-                ft.TextButton(
-                    "Classrooms", 
-                    on_click=go_classrooms,
-                    style=active_style if current_page == "classrooms" else None
-                ),
-                ft.TextButton(
-                    "Reservations", 
-                    on_click=go_reservations, 
-                    disabled=not reservations_enabled,
-                    style=active_style if current_page == "reservations" else None
-                ),
-                ft.TextButton(
-                    "Analytics", 
-                    on_click=go_analytics, 
-                    disabled=not analytics_enabled,
-                    style=active_style if current_page == "analytics" else None
-                )
-            ],
-            expand=True,
-            alignment=ft.MainAxisAlignment.SPACE_AROUND,
-        )
-
-        settings = ft.IconButton(icon=ft.Icons.SETTINGS, tooltip="Settings", on_click=open_drawer)
-
-        header_row = ft.Row(
-            [logo, navbar_block, settings],
-            alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-            vertical_alignment=ft.CrossAxisAlignment.CENTER
-        )
-
-        return ft.Container(
-            content=header_row,
-            padding=ft.padding.symmetric(horizontal=20, vertical=15),
-            bgcolor=ft.Colors.GREY_200,
-            border=ft.border.only(bottom=ft.BorderSide(2, ft.Colors.OUTLINE_VARIANT))
-        )
-    
-    # Welcome block
-    role_color = "#ffd141"
-
-    welcome_block = ft.Container(
-        content=ft.Row(
-            [
-                ft.Text(f"Welcome, {name}!", size=15),
-                ft.Container(
-                    content=ft.Text(role.upper(), size=11),
-                    bgcolor=role_color,
-                    padding=ft.padding.symmetric(horizontal=10, vertical=4),
-                    border_radius=5
-                )
-            ],
-            spacing=30,
-            alignment=ft.MainAxisAlignment.START,
-        ),
-        padding=ft.padding.symmetric(vertical=10, horizontal=30),
-        bgcolor=ft.Colors.GREY_400,
-    )
-
     # Get classrooms from database
     try:
-        classrooms = ClassroomModel.get_all_classrooms() or []
+        all_classrooms = ClassroomModel.get_all_classrooms() or []
     except Exception:
-        classrooms = []
+        all_classrooms = []
 
-    # Search state
+    # Search and filter state
     search_query = ft.Ref[ft.TextField]()
     classroom_list_ref = ft.Ref[ft.Column]()
+    result_count_ref = ft.Ref[ft.Text]()
 
     def create_classroom_card(room):
         """Helper function to create a classroom card"""
         status_color = COLORS.GREEN if room.get("status") == "Available" else "orange"
-
-        # Classroom image (use default if none)
         image_src = room.get("image_url") or "../assets/images/classroom-default.png"
 
         def view_schedule_click(e):
@@ -199,7 +50,6 @@ def show_dashboard(page, user_id, role, name):
             expand=True
         )
 
-        # For admin + student → disabled reserve button instead of text
         if role in ("admin", "student"):
             reserve_btn = ft.ElevatedButton(
                 "Reserve",
@@ -218,13 +68,12 @@ def show_dashboard(page, user_id, role, name):
         )
 
         return ft.Card(
-            width=320,  # perfect for 3-column grid
+            width=320,
             elevation=3,
             content=ft.Container(
                 padding=0,
                 content=ft.Column(
                     [
-                        # IMAGE
                         ft.Container(
                             content=ft.Image(
                                 src=image_src,
@@ -237,8 +86,6 @@ def show_dashboard(page, user_id, role, name):
                             ),
                             clip_behavior=ft.ClipBehavior.ANTI_ALIAS
                         ),
-
-                        # TEXT BLOCK
                         ft.Container(
                             padding=ft.padding.symmetric(horizontal=12, vertical=8),
                             content=ft.Column(
@@ -263,8 +110,6 @@ def show_dashboard(page, user_id, role, name):
                                 spacing=3
                             )
                         ),
-
-                        # BUTTONS
                         ft.Container(
                             padding=ft.padding.all(12),
                             content=ft.Row(
@@ -281,55 +126,106 @@ def show_dashboard(page, user_id, role, name):
         )
 
     def matches_search(text, query):
-        """Check if query characters appear consecutively in text"""
+        """Check if query appears in text"""
         if not query:
             return True
-        
-        text = text.lower()
-        query = query.lower()
-        
-        # Simple substring match for consecutive characters
-        return query in text
+        return query.lower() in text.lower()
     
-    def filter_classrooms(e):
-        """Filter classrooms based on search query"""
-        query = search_query.current.value.strip()
+    def apply_filters(classrooms_to_filter):
+        """Apply search query to classroom list"""
+        query = current_search_query.strip()
         filtered_cards = []
         
-        for room in classrooms:
+        for room in classrooms_to_filter:
             room_name = room.get("room_name", "")
             building = room.get("building", "")
             capacity = str(room.get("capacity", ""))
             status = room.get("status", "")
             
-            # Search across multiple fields
             searchable_text = f"{room_name} {building} {capacity} {status}"
             
-            # If query is empty or matches any field
             if matches_search(searchable_text, query):
                 filtered_cards.append(create_classroom_card(room))
         
-        # Show message if no results found
-        if not filtered_cards and query:
+        return filtered_cards
+    
+    def update_classroom_display(classrooms_to_show):
+        """Update the classroom grid with filtered results"""
+        filtered_cards = apply_filters(classrooms_to_show)
+        
+        # Update result count
+        result_count_ref.current.value = f"Showing {len(filtered_cards)} classroom(s)"
+        
+        if not filtered_cards:
             classroom_list_ref.current.controls = [
                 ft.Container(
-                    content=ft.Text(
-                        "No classrooms found matching your search.",
-                        size=16,
-                        color=ft.Colors.GREY_600,
-                        italic=True
-                    ),
-                    padding=20,
+                    content=ft.Column([
+                        ft.Icon(ft.icons.SEARCH_OFF, size=64, color=ft.Colors.GREY_400),
+                        ft.Text(
+                            "No classrooms found",
+                            size=18,
+                            weight=ft.FontWeight.BOLD,
+                            color=ft.Colors.GREY_600
+                        ),
+                        ft.Text(
+                            "Try adjusting your search or filter criteria",
+                            size=14,
+                            color=ft.Colors.GREY_500,
+                            italic=True
+                        )
+                    ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10),
+                    padding=40,
                     alignment=ft.alignment.center
                 )
             ]
         else:
-            # Organize filtered cards into grid rows
             classroom_list_ref.current.controls = create_grid_rows(filtered_cards)
         
         page.update()
+    
+    def filter_by_availability(reservation_date, start_time, end_time):
+        """Filter classrooms by availability on specific date/time"""
+        nonlocal filtered_by_availability
+        filtered_by_availability = True
+        
+        try:
+            # Get available classrooms from database
+            available_classrooms = ReservationModel.get_available_classrooms(
+                reservation_date.date(),
+                start_time,
+                end_time
+            )
+            
+            update_classroom_display(available_classrooms)
+            
+        except Exception as e:
+            print(f"Error filtering classrooms: {e}")
+            show_snackbar("Error loading available classrooms")
+    
+    def clear_availability_filter():
+        """Clear availability filter and show all classrooms"""
+        nonlocal filtered_by_availability
+        filtered_by_availability = False
+        update_classroom_display(all_classrooms)
+    
+    def search_classrooms(e):
+        """Handle search query changes"""
+        nonlocal current_search_query
+        current_search_query = search_query.current.value.strip()
+        
+        # Apply search to current classroom list (filtered or all)
+        if filtered_by_availability:
+            # Re-apply the availability filter with new search
+            # This requires storing the filter parameters
+            pass
+        else:
+            update_classroom_display(all_classrooms)
+    
+    def show_snackbar(message):
+        page.snack_bar = ft.SnackBar(content=ft.Text(message))
+        page.snack_bar.open = True
+        page.update()
 
-    # Create initial classroom cards in grid layout
     def create_grid_rows(cards):
         """Organize cards into rows of 3"""
         rows = []
@@ -345,35 +241,52 @@ def show_dashboard(page, user_id, role, name):
             )
         return rows
 
-    classroom_cards = [create_classroom_card(room) for room in classrooms]
+    # Create availability filter
+    availability_filter = ClassroomAvailabilityFilter(
+        on_filter_applied=filter_by_availability,
+        on_filter_cleared=clear_availability_filter
+    )
+
+    # Initial classroom display
+    classroom_cards = [create_classroom_card(room) for room in all_classrooms]
     grid_rows = create_grid_rows(classroom_cards)
 
     # Build page layout
     page.controls.clear()
     page.add(
         ft.Column([
-            make_header_block(),
-            welcome_block,
+            header,  # Use the header from create_app_header
             ft.Container(
                 content=ft.Text("Available Classrooms", size=32, font_family="Montserrat Bold", weight=ft.FontWeight.BOLD),
                 padding=ft.padding.only(left=30, top=20), 
                 alignment=ft.alignment.center
             ),
             ft.Container(height=10),
-            # Search bar
+            # Search and filter controls
             ft.Container(
-                content=ft.TextField(
-                    ref=search_query,
-                    hint_text="Search for Classroom",
-                    prefix_icon=ft.Icons.SEARCH,
-                    on_change=filter_classrooms,
-                    width=600,
-                    border_radius=10,
-                ),
-                alignment=ft.alignment.center,
+                content=ft.Row([
+                    ft.TextField(
+                        ref=search_query,
+                        hint_text="Search by name, building, capacity...",
+                        prefix_icon=ft.Icons.SEARCH,
+                        on_change=search_classrooms,
+                        width=500,
+                        border_radius=10,
+                    ),
+                    availability_filter
+                ], spacing=20, alignment=ft.MainAxisAlignment.CENTER),
                 padding=ft.padding.symmetric(horizontal=30)
             ),
-            ft.Container(height=10),
+            # Result count
+            ft.Container(
+                content=ft.Text(
+                    ref=result_count_ref,
+                    value=f"Showing {len(all_classrooms)} classroom(s)",
+                    size=13,
+                    color=ft.Colors.GREY_600
+                ),
+                padding=ft.padding.symmetric(horizontal=30, vertical=5)
+            ),
             # Scrollable classroom grid
             ft.Container(
                 content=ft.Column(

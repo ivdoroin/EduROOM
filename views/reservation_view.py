@@ -2,10 +2,14 @@ import flet as ft
 from utils.config import ICONS, COLORS
 from data.models import ClassroomModel, ReservationModel, ActivityLogModel
 from datetime import datetime
+from components.app_header import create_app_header
 
 def show_reservation_form(page, user_id, role, name, classroom_id):
     """Display the reservation form for faculty to book classrooms"""
     
+    # Create the header and drawer
+    header, drawer = create_app_header(page, user_id, role, name, current_page="reservations")
+
     # Only faculty can make reservations
     if role != "faculty":
         return
@@ -149,6 +153,7 @@ def show_reservation_form(page, user_id, role, name, classroom_id):
     page.controls.clear()
     page.add(
         ft.Container(
+            header, 
             content=ft.Column([
                 # Back button
                 ft.Container(

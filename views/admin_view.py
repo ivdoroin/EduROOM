@@ -1,10 +1,14 @@
 import flet as ft
 from utils.config import ICONS, COLORS
 from data.models import ReservationModel, ActivityLogModel
+from components.app_header import create_app_header
 
 def show_admin_panel(page, user_id, role, name):
     """Display admin panel for managing reservations from database"""
-    
+
+    # Create the header and drawer
+    header, drawer = create_app_header(page, user_id, role, name, current_page="reservations")
+  
     if role != "admin":
         return
     
@@ -175,6 +179,7 @@ def show_admin_panel(page, user_id, role, name):
     page.controls.clear()
     page.add(
         ft.Column([
+            header, 
             ft.Container(
                 content=ft.Row([
                     ft.IconButton(icon=ICONS.ARROW_BACK, on_click=back_to_dashboard, tooltip="Back"),

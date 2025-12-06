@@ -15,12 +15,16 @@ def main(page: ft.Page):
     page.fonts = {
     "Roboto": "assets/fonts/Roboto-Regular.ttf",
     "Roboto-Medium": "assets/fonts/Roboto-Medium.ttf",
-    "Roboto-Bold": "assets/fonts/Roboto-Bold.ttf",
+    "Roboto-Bold": "assets/fonts/Montserrat-Bold.ttf",
     }
     page.theme = ft.Theme(font_family="Roboto")
 
-    # Start with login page
-    show_login(page)
+    # # Start with login page
+    # show_login(page)
+
+    # Skip login for now - go directly to dashboard
+    from views.dashboard_view import show_dashboard
+    show_dashboard(page, user_id=1, role="admin", name="Admin User")
 
 if __name__ == "__main__":
     ft.app(target=main, assets_dir="assets")

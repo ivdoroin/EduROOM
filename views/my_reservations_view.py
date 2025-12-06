@@ -2,10 +2,14 @@ import flet as ft
 from utils.config import ICONS, COLORS
 from data.models import ReservationModel, ActivityLogModel
 from datetime import datetime
+from components.app_header import create_app_header
 
 def show_my_reservations(page, user_id, role, name):
     """Display faculty member's reservations from database"""
     
+    # Create the header and drawer
+    header, drawer = create_app_header(page, user_id, role, name, current_page="reservations")
+
     if role != "faculty":
         return
     
@@ -326,6 +330,7 @@ def show_my_reservations(page, user_id, role, name):
     page.overlay.clear()
     page.add(
         ft.Column([
+            header, 
             ft.Container(
                 content=ft.Row([
                     ft.Row([

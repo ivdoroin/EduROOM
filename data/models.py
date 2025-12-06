@@ -273,6 +273,50 @@ class ReservationModel:
         db.disconnect()
         return result is not None
 
+    @staticmethod
+    def get_reservations_by_classroom_and_date(classroom_id, reservation_date):
+        """Get all approved reservations for a classroom on a specific date"""
+        db.connect()
+        query = """
+            SELECT id, classroom_id, reservation_date, start_time, end_time, status
+            FROM reservations
+            WHERE classroom_id = %s 
+            AND reservation_date = %s
+            AND status = 'approved'
+            ORDER BY start_time
+        """
+        reservations = db.fetch_all(query, (classroom_id, reservation_date))
+        db.disconnect()
+        return reservations
+    
+    @staticmethod
+    def get_available_classrooms(reservation_date, start_time, end_time):
+        """Get all classrooms that are available for the given date and time range"""
+        db.connect()
+        query = """
+            SELECT c.* 
+            FROM classrooms c
+            WHERE c.id NOT IN (
+                SELECT DISTINCT r.classroom_id
+                FROM reservations r
+                WHERE r.reservation_date = %s
+                AND r.status = 'approved'
+                AND (
+                    (r.start_time < %s AND r.end_time > %s) OR
+                    (r.start_time < %s AND r.end_time > %s) OR
+                    (r.start_time >= %s AND r.end_time <= %s)
+                )
+            )
+            ORDER BY c.room_name
+        """
+        classrooms = db.fetch_all(query, (
+            reservation_date, 
+            end_time, start_time,  # overlaps start
+            end_time, start_time,  # overlaps end
+            start_time, end_time   # contained within
+        ))
+        db.disconnect()
+        return classrooms
 
 class ActivityLogModel:
     @staticmethod
