@@ -212,7 +212,7 @@ class ReservationModel:
             SELECT COUNT(*) as count FROM reservations
             WHERE classroom_id = %s 
             AND reservation_date = %s
-            AND status IN ('approved', 'pending')
+            AND status IN ('approved', 'pending', 'ongoing')
             AND start_time < %s   -- Existing reservation starts before new ends
             AND end_time > %s     -- Existing reservation ends after new starts
         """
@@ -237,7 +237,7 @@ class ReservationModel:
             FROM reservations
             WHERE classroom_id = %s 
             AND reservation_date = %s
-            AND status IN ('approved', 'pending')
+            AND status IN ('approved', 'pending', 'ongoing')
             ORDER BY start_time
         """
         results = db.fetch_all(query, (classroom_id, reservation_date))
@@ -281,6 +281,69 @@ class ReservationModel:
         return result is not None
     
     @staticmethod
+    def set_ongoing(reservation_id):
+        """Set reservation status to ongoing"""
+        db.connect()
+        query = "UPDATE reservations SET status = 'ongoing' WHERE id = %s AND status = 'approved'"
+        result = db.execute_query(query, (reservation_id,))
+        db.disconnect()
+        return result is not None
+    
+    @staticmethod
+    def set_done(reservation_id):
+        """Set reservation status to done"""
+        db.connect()
+        query = "UPDATE reservations SET status = 'done' WHERE id = %s AND status = 'ongoing'"
+        result = db.execute_query(query, (reservation_id,))
+        db.disconnect()
+        return result is not None
+    
+    @staticmethod
+    def update_reservation_statuses():
+        """
+        Automatically update reservation statuses based on current date/time.
+        - approved → ongoing: when current time is within reservation time range
+        - ongoing → done: when current time is past end_time
+        Returns True on success.
+        """
+        db.connect()
+        
+        # Set approved reservations to ongoing if current time is within their time range
+        ongoing_query = """
+            UPDATE reservations 
+            SET status = 'ongoing' 
+            WHERE status = 'approved'
+            AND reservation_date = CURDATE()
+            AND start_time <= CURTIME()
+            AND end_time > CURTIME()
+        """
+        db.execute_query(ongoing_query)
+        
+        # Set ongoing reservations to done if current time is past end_time
+        done_query = """
+            UPDATE reservations 
+            SET status = 'done' 
+            WHERE status = 'ongoing'
+            AND (
+                reservation_date < CURDATE()
+                OR (reservation_date = CURDATE() AND end_time <= CURTIME())
+            )
+        """
+        db.execute_query(done_query)
+        
+        # Also mark approved reservations from past dates as done
+        past_done_query = """
+            UPDATE reservations 
+            SET status = 'done' 
+            WHERE status = 'approved'
+            AND reservation_date < CURDATE()
+        """
+        db.execute_query(past_done_query)
+        
+        db.disconnect()
+        return True
+    
+    @staticmethod
     def can_modify_reservation(reservation_id, user_id):
         """Check if user can modify this reservation"""
         db.connect()
@@ -294,14 +357,14 @@ class ReservationModel:
 
     @staticmethod
     def get_reservations_by_classroom_and_date(classroom_id, reservation_date):
-        """Get all approved reservations for a classroom on a specific date"""
+        """Get all approved/ongoing reservations for a classroom on a specific date"""
         db.connect()
         query = """
             SELECT id, classroom_id, reservation_date, start_time, end_time, status
             FROM reservations
             WHERE classroom_id = %s 
             AND reservation_date = %s
-            AND status = 'approved'
+            AND status IN ('approved', 'ongoing')
             ORDER BY start_time
         """
         reservations = db.fetch_all(query, (classroom_id, reservation_date))
@@ -319,7 +382,7 @@ class ReservationModel:
                 SELECT DISTINCT r.classroom_id
                 FROM reservations r
                 WHERE r.reservation_date = %s
-                AND r.status = 'approved'
+                AND r.status IN ('approved', 'ongoing')
                 AND (
                     (r.start_time < %s AND r.end_time > %s) OR
                     (r.start_time < %s AND r.end_time > %s) OR
@@ -348,4 +411,3 @@ class ActivityLogModel:
         """
         db.execute_query(query, (user_id, action, details, ip_address))
         db.disconnect()
-        

@@ -42,6 +42,8 @@ def show_admin_panel(page, user_id, role, name):
     reservations = ReservationModel.get_all_reservations()
     pending = [r for r in reservations if r["status"] == "pending"]
     approved = [r for r in reservations if r["status"] == "approved"]
+    ongoing = [r for r in reservations if r["status"] == "ongoing"]
+    done = [r for r in reservations if r["status"] == "done"]
     rejected = [r for r in reservations if r["status"] == "rejected"]
     
     def create_reservation_card(res, show_actions=True):
@@ -50,6 +52,8 @@ def show_admin_panel(page, user_id, role, name):
         status_config = {
             "pending": {"color": "orange", "icon": ICONS.HOURGLASS_EMPTY},
             "approved": {"color": COLORS.GREEN if hasattr(COLORS, "GREEN") else "green", "icon": ICONS.CHECK_CIRCLE},
+            "ongoing": {"color": "#2196F3", "icon": ICONS.PLAY_CIRCLE},
+            "done": {"color": "#9E9E9E", "icon": ICONS.TASK_ALT},
             "rejected": {"color": "red", "icon": ICONS.CANCEL}
         }
         config = status_config.get(res["status"], status_config["pending"])
@@ -155,6 +159,42 @@ def show_admin_panel(page, user_id, role, name):
                 )
             ),
             ft.Tab(
+                text=f"Ongoing ({len(ongoing)})",
+                icon=ICONS.PLAY_CIRCLE,
+                content=ft.Container(
+                    content=ft.Column([
+                        ft.Column(
+                            [create_reservation_card(r, show_actions=False) for r in ongoing] if ongoing
+                            else [ft.Container(
+                                content=ft.Text("No ongoing reservations", color=COLORS.GREY if hasattr(COLORS, "GREY") else "grey"),
+                                padding=20
+                            )],
+                            spacing=10,
+                            scroll=ft.ScrollMode.AUTO
+                        )
+                    ]),
+                    padding=10
+                )
+            ),
+            ft.Tab(
+                text=f"Done ({len(done)})",
+                icon=ICONS.TASK_ALT,
+                content=ft.Container(
+                    content=ft.Column([
+                        ft.Column(
+                            [create_reservation_card(r, show_actions=False) for r in done] if done
+                            else [ft.Container(
+                                content=ft.Text("No completed reservations", color=COLORS.GREY if hasattr(COLORS, "GREY") else "grey"),
+                                padding=20
+                            )],
+                            spacing=10,
+                            scroll=ft.ScrollMode.AUTO
+                        )
+                    ]),
+                    padding=10
+                )
+            ),
+            ft.Tab(
                 text=f"Rejected ({len(rejected)})",
                 icon=ICONS.CANCEL,
                 content=ft.Container(
@@ -182,9 +222,12 @@ def show_admin_panel(page, user_id, role, name):
             header, 
             ft.Container(
                 content=ft.Row([
-                    ft.IconButton(icon=ICONS.ARROW_BACK, on_click=back_to_dashboard, tooltip="Back"),
-                    ft.Text("Admin Panel - Manage Reservations", size=24, weight=ft.FontWeight.BOLD),
-                ]),
+                    ft.Row([
+                        ft.IconButton(icon=ICONS.ARROW_BACK, on_click=back_to_dashboard, tooltip="Back"),
+                        ft.Text("Admin Panel - Manage Reservations", size=24, weight=ft.FontWeight.BOLD),
+                    ]),
+                    ft.IconButton(icon=ICONS.REFRESH, on_click=lambda e: refresh_panel(), tooltip="Refresh"),
+                ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                 padding=20,
                 width=850
             ),

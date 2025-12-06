@@ -262,6 +262,8 @@ def show_my_reservations(page, user_id, role, name):
             status_config = {
                 "pending": {"color": "orange", "icon": ICONS.HOURGLASS_EMPTY, "text": "Pending Approval", "can_edit": True, "can_cancel": True},
                 "approved": {"color": COLORS.GREEN if hasattr(COLORS, "GREEN") else "green", "icon": ICONS.CHECK_CIRCLE, "text": "Approved", "can_edit": False, "can_cancel": True},
+                "ongoing": {"color": "#2196F3", "icon": ICONS.PLAY_CIRCLE, "text": "Ongoing", "can_edit": False, "can_cancel": False},
+                "done": {"color": "#9E9E9E", "icon": ICONS.TASK_ALT, "text": "Done", "can_edit": False, "can_cancel": False},
                 "rejected": {"color": "red", "icon": ICONS.CANCEL, "text": "Rejected", "can_edit": False, "can_cancel": False},
                 "cancelled": {"color": "grey", "icon": ICONS.BLOCK, "text": "Cancelled", "can_edit": False, "can_cancel": False}
             }

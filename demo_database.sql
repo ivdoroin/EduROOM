@@ -2,7 +2,7 @@
 -- Sampl EduROOM Database Setup Script
 -- =====================================================
 -- Description: Creates database, tables, and test data
--- Author: Chia
+-- Author: TechValks
 -- Usage: Run this script in MySQL Workbench
 -- =====================================================
 
@@ -90,7 +90,7 @@ CREATE TABLE reservations (
     start_time TIME NOT NULL,
     end_time TIME NOT NULL,
     purpose TEXT NOT NULL,
-    status ENUM('pending', 'approved', 'rejected', 'cancelled') DEFAULT 'pending',
+    status ENUM('pending', 'approved', 'rejected', 'cancelled', 'ongoing', 'done') DEFAULT 'pending',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (classroom_id) REFERENCES classrooms(id) ON DELETE CASCADE,

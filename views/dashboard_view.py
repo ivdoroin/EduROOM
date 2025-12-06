@@ -8,6 +8,12 @@ from components.app_header import create_app_header
 def show_dashboard(page, user_id, role, name):
     """Display main dashboard with availability filtering"""
 
+    # Auto-update reservation statuses (approved → ongoing → done)
+    try:
+        ReservationModel.update_reservation_statuses()
+    except Exception:
+        pass  # Silently fail if database is unavailable
+
     # Create the header and drawer
     header, drawer = create_app_header(page, user_id, role, name, current_page="classrooms")
 
