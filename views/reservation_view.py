@@ -267,8 +267,8 @@ def show_reservation_form(page, user_id, role, name, classroom_id):
     page.add(
         ft.Column([
             header,
-            ft.Container(
-                content=ft.Column([
+            ft.Column([
+                ft.Column([
                     # Back button
                     ft.Container(
                         content=ft.IconButton(
@@ -393,12 +393,16 @@ def show_reservation_form(page, user_id, role, name, classroom_id):
                             disabled=True  # Initially disabled
                         ),
                     ),
+                    
+                    # Bottom padding for scroll
+                    ft.Container(height=40),
                 ], 
                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                 spacing=5),
-                padding=40,
-                expand=True,
-                alignment=ft.alignment.top_center
+            ],
+            scroll=ft.ScrollMode.AUTO,
+            expand=True,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
             )
         ], spacing=0, expand=True)
     )
