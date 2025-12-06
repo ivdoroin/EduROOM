@@ -88,8 +88,11 @@ class UserModel:
         # Hash new password and update
         new_password_hash = hash_password(new_password)
         update_query = "UPDATE users SET password_hash = %s WHERE id = %s"
-        db.execute_query(update_query, (new_password_hash, user_id))
+        result = db.execute_query(update_query, (new_password_hash, user_id))
         db.disconnect()
+        
+        if result is None:  # Check if update failed
+            return False, "Error updating password"
         
         return True, "Password changed successfully"
 
