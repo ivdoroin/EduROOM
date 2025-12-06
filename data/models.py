@@ -202,20 +202,19 @@ class ReservationModel:
     
     @staticmethod
     def check_availability(classroom_id, reservation_date, start_time, end_time, exclude_reservation_id=None):
-        """Check if classroom is available at given time"""
+        """Check if a classroom is available for the given date and time range."""
         db.connect()
+        
         query = """
             SELECT COUNT(*) as count FROM reservations
             WHERE classroom_id = %s 
             AND reservation_date = %s
-            AND status = 'approved'
-            AND (
-                (start_time < %s AND end_time > %s) OR
-                (start_time < %s AND end_time > %s) OR
-                (start_time >= %s AND end_time <= %s)
-            )
+            AND status IN ('approved', 'pending')
+            AND start_time < %s   -- Existing reservation starts before new ends
+            AND end_time > %s     -- Existing reservation ends after new starts
         """
-        params = [classroom_id, reservation_date, end_time, start_time, end_time, start_time, start_time, end_time]
+        
+        params = [classroom_id, reservation_date, end_time, start_time]
         
         if exclude_reservation_id:
             query += " AND id != %s"
@@ -223,7 +222,24 @@ class ReservationModel:
         
         result = db.fetch_one(query, tuple(params))
         db.disconnect()
+        
         return result['count'] == 0
+
+    @staticmethod
+    def get_occupied_slots(classroom_id, reservation_date):
+        """Get all occupied time slots for a classroom on a specific date"""
+        db.connect()
+        query = """
+            SELECT start_time, end_time, purpose, status
+            FROM reservations
+            WHERE classroom_id = %s 
+            AND reservation_date = %s
+            AND status IN ('approved', 'pending')
+            ORDER BY start_time
+        """
+        results = db.fetch_all(query, (classroom_id, reservation_date))
+        db.disconnect()
+        return results if results else []
     
     @staticmethod
     def get_reservation_by_id(reservation_id):

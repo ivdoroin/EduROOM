@@ -1,14 +1,7 @@
 import flet as ft
 
 def create_app_header(page, user_id, role, name, current_page="classrooms"):
-    """
-    Create the complete app header including:
-    - Navigation bar with logo
-    - Settings drawer
-    - Welcome banner
-    
-    Returns a tuple: (header_column, drawer)
-    """
+    """Create the application header with navigation and user drawer"""
     
     # ==================== DRAWER ====================
     def logout_click(e):

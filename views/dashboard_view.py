@@ -1,8 +1,8 @@
 import flet as ft
+import datetime
 from utils.config import ICONS, COLORS
 from data.models import ClassroomModel, ReservationModel
 from views.schedule_view import show_classroom_schedule
-from components.classroom_filter import ClassroomAvailabilityFilter
 from components.app_header import create_app_header
 
 def show_dashboard(page, user_id, role, name):
@@ -13,11 +13,19 @@ def show_dashboard(page, user_id, role, name):
 
     # State variables
     all_classrooms = []
+    current_classrooms = [] 
     filtered_by_availability = False
     current_search_query = ""
+    selected_date = None
+    selected_start_time = None
+    selected_end_time = None
+    
 
     def open_reservation_form(classroom_id):
         from views.reservation_view import show_reservation_form
+        page.controls.clear()
+        page.overlay.clear()
+        page.update()
         show_reservation_form(page, user_id, role, name, classroom_id)
 
     # Get classrooms from database
@@ -30,6 +38,10 @@ def show_dashboard(page, user_id, role, name):
     search_query = ft.Ref[ft.TextField]()
     classroom_list_ref = ft.Ref[ft.Column]()
     result_count_ref = ft.Ref[ft.Text]()
+    date_button_ref = ft.Ref[ft.Container]()
+    start_time_button_ref = ft.Ref[ft.Container]()
+    end_time_button_ref = ft.Ref[ft.Container]()
+    apply_button_ref = ft.Ref[ft.ElevatedButton]()
 
     def create_classroom_card(room):
         """Helper function to create a classroom card"""
@@ -41,10 +53,12 @@ def show_dashboard(page, user_id, role, name):
 
         reserve_enabled = (role == "faculty") and (room.get("status") == "Available")
 
+        def on_reserve_click(e):
+            open_reservation_form(room["id"])
+
         reserve_btn = ft.ElevatedButton(
             "Reserve",
-            icon=ICONS.BOOK_ONLINE,
-            on_click=lambda e, rid=room["id"]: open_reservation_form(rid),
+            on_click=on_reserve_click,
             disabled=not reserve_enabled,
             height=35,
             expand=True
@@ -53,7 +67,6 @@ def show_dashboard(page, user_id, role, name):
         if role in ("admin", "student"):
             reserve_btn = ft.ElevatedButton(
                 "Reserve",
-                icon=ICONS.BOOK_ONLINE,
                 disabled=True,
                 height=35,
                 expand=True
@@ -61,7 +74,6 @@ def show_dashboard(page, user_id, role, name):
 
         schedule_btn = ft.OutlinedButton(
             "View Schedule",
-            icon=ft.Icons.CALENDAR_TODAY,
             on_click=view_schedule_click,
             height=35,
             expand=True
@@ -160,7 +172,7 @@ def show_dashboard(page, user_id, role, name):
             classroom_list_ref.current.controls = [
                 ft.Container(
                     content=ft.Column([
-                        ft.Icon(ft.icons.SEARCH_OFF, size=64, color=ft.Colors.GREY_400),
+                        ft.Icon(ft.Icons.SEARCH_OFF, size=64, color=ft.Colors.GREY_400),
                         ft.Text(
                             "No classrooms found",
                             size=18,
@@ -185,28 +197,107 @@ def show_dashboard(page, user_id, role, name):
     
     def filter_by_availability(reservation_date, start_time, end_time):
         """Filter classrooms by availability on specific date/time"""
-        nonlocal filtered_by_availability
+        nonlocal filtered_by_availability, current_classrooms
         filtered_by_availability = True
         
         try:
             # Get available classrooms from database
             available_classrooms = ReservationModel.get_available_classrooms(
-                reservation_date.date(),
+                reservation_date,
                 start_time,
                 end_time
             )
             
-            update_classroom_display(available_classrooms)
+            # Update current classrooms to the filtered set
+            current_classrooms = available_classrooms
+            update_classroom_display(current_classrooms) 
             
         except Exception as e:
-            print(f"Error filtering classrooms: {e}")
             show_snackbar("Error loading available classrooms")
     
     def clear_availability_filter():
         """Clear availability filter and show all classrooms"""
-        nonlocal filtered_by_availability
+        nonlocal filtered_by_availability, selected_date, selected_start_time, selected_end_time, current_classrooms
         filtered_by_availability = False
-        update_classroom_display(all_classrooms)
+        selected_date = None
+        selected_start_time = None
+        selected_end_time = None
+        current_classrooms = all_classrooms
+        
+        # Reset button texts
+        date_button_ref.current.content.value = "Select Date"
+        start_time_button_ref.current.content.value = "Start Time"
+        end_time_button_ref.current.content.value = "End Time"
+        apply_button_ref.current.disabled = True
+        
+        update_classroom_display(current_classrooms)
+    
+    def handle_date_change(e):
+        """Handle date picker selection"""
+        nonlocal selected_date
+        selected_date = e.control.value
+        date_button_ref.current.content.value = selected_date.strftime('%m/%d/%Y')
+        check_filter_ready()
+        page.update()
+    
+    def handle_start_time_change(e):
+        """Handle start time picker selection"""
+        nonlocal selected_start_time
+        selected_start_time = e.control.value
+        start_time_button_ref.current.content.value = selected_start_time
+        check_filter_ready()
+        page.update()
+    
+    def handle_end_time_change(e):
+        """Handle end time picker selection"""
+        nonlocal selected_end_time
+        selected_end_time = e.control.value
+        end_time_button_ref.current.content.value = selected_end_time
+        check_filter_ready()
+        page.update()
+    
+    def check_filter_ready():
+        """Enable apply button when all filters are selected"""
+        if selected_date and selected_start_time and selected_end_time:
+            apply_button_ref.current.disabled = False
+        else:
+            apply_button_ref.current.disabled = True
+        page.update()
+    
+    def open_date_picker(e):
+        """Open the date picker dialog"""
+        page.open(
+            ft.DatePicker(
+                first_date=datetime.datetime.now(),
+                last_date=datetime.datetime.now() + datetime.timedelta(days=365),
+                on_change=handle_date_change
+            )
+        )
+    
+    def open_start_time_picker(e):
+        """Open the start time picker dialog"""
+        page.open(
+            ft.TimePicker(
+                on_change=handle_start_time_change
+            )
+        )
+    
+    def open_end_time_picker(e):
+        """Open the end time picker dialog"""
+        page.open(
+            ft.TimePicker(
+                on_change=handle_end_time_change
+            )
+        )
+    
+    def apply_filter_click(e):
+        """Apply the availability filter"""
+        if selected_date and selected_start_time and selected_end_time:
+            filter_by_availability(selected_date, selected_start_time, selected_end_time)
+    
+    def clear_filter_click(e):
+        """Clear the availability filter"""
+        clear_availability_filter()
     
     def search_classrooms(e):
         """Handle search query changes"""
@@ -214,16 +305,13 @@ def show_dashboard(page, user_id, role, name):
         current_search_query = search_query.current.value.strip()
         
         # Apply search to current classroom list (filtered or all)
-        if filtered_by_availability:
-            # Re-apply the availability filter with new search
-            # This requires storing the filter parameters
-            pass
-        else:
-            update_classroom_display(all_classrooms)
+        update_classroom_display(current_classrooms)
+
+    # Initialize current_classrooms at the start
+    current_classrooms = all_classrooms 
     
     def show_snackbar(message):
-        page.snack_bar = ft.SnackBar(content=ft.Text(message))
-        page.snack_bar.open = True
+        page.open(ft.SnackBar(content=ft.Text(message)))
         page.update()
 
     def create_grid_rows(cards):
@@ -241,10 +329,59 @@ def show_dashboard(page, user_id, role, name):
             )
         return rows
 
-    # Create availability filter
-    availability_filter = ClassroomAvailabilityFilter(
-        on_filter_applied=filter_by_availability,
-        on_filter_cleared=clear_availability_filter
+    # Create dropdown-style picker buttons
+    date_picker_button = ft.Container(
+        ref=date_button_ref,
+        content=ft.Text("Select Date", size=14),
+        padding=ft.padding.symmetric(horizontal=15, vertical=12),
+        border=ft.border.all(1, ft.Colors.GREY_400),
+        border_radius=8,
+        bgcolor=ft.Colors.WHITE,
+        on_click=open_date_picker,
+        ink=True,
+        width=180
+    )
+    
+    start_time_button = ft.Container(
+        ref=start_time_button_ref,
+        content=ft.Text("Start Time", size=14),
+        padding=ft.padding.symmetric(horizontal=15, vertical=12),
+        border=ft.border.all(1, ft.Colors.GREY_400),
+        border_radius=8,
+        bgcolor=ft.Colors.WHITE,
+        on_click=open_start_time_picker,
+        ink=True,
+        width=150
+    )
+    
+    end_time_button = ft.Container(
+        ref=end_time_button_ref,
+        content=ft.Text("End Time", size=14),
+        padding=ft.padding.symmetric(horizontal=15, vertical=12),
+        border=ft.border.all(1, ft.Colors.GREY_400),
+        border_radius=8,
+        bgcolor=ft.Colors.WHITE,
+        on_click=open_end_time_picker,
+        ink=True,
+        width=150
+    )
+    
+    apply_button = ft.ElevatedButton(
+        ref=apply_button_ref,
+        text="Apply",
+        icon=ft.Icons.CHECK,
+        on_click=apply_filter_click,
+        disabled=True,
+        height=45,
+        bgcolor=ft.Colors.BLUE,
+        color=ft.Colors.WHITE,
+    )
+    
+    clear_button = ft.OutlinedButton(
+        text="Clear",
+        icon=ft.Icons.CLEAR,
+        on_click=clear_filter_click,
+        height=45,
     )
 
     # Initial classroom display
@@ -255,26 +392,44 @@ def show_dashboard(page, user_id, role, name):
     page.controls.clear()
     page.add(
         ft.Column([
-            header,  # Use the header from create_app_header
+            header,
             ft.Container(
                 content=ft.Text("Available Classrooms", size=32, font_family="Montserrat Bold", weight=ft.FontWeight.BOLD),
                 padding=ft.padding.only(left=30, top=20), 
                 alignment=ft.alignment.center
             ),
             ft.Container(height=10),
-            # Search and filter controls
+            # Search bar
             ft.Container(
-                content=ft.Row([
-                    ft.TextField(
-                        ref=search_query,
-                        hint_text="Search by name, building, capacity...",
-                        prefix_icon=ft.Icons.SEARCH,
-                        on_change=search_classrooms,
-                        width=500,
-                        border_radius=10,
-                    ),
-                    availability_filter
-                ], spacing=20, alignment=ft.MainAxisAlignment.CENTER),
+                content=ft.TextField(
+                    ref=search_query,
+                    hint_text="Search by name, building, capacity...",
+                    prefix_icon=ft.Icons.SEARCH,
+                    on_change=search_classrooms,
+                    border_radius=10,
+                ),
+                padding=ft.padding.symmetric(horizontal=30),
+            ),
+            ft.Container(height=10),
+            # Filter bar
+            ft.Container(
+                content=ft.Card(
+                    elevation=2,
+                    content=ft.Container(
+                        padding=ft.padding.all(20),
+                        content=ft.Row([
+                            ft.Icon(ft.Icons.FILTER_LIST, size=20, color=ft.Colors.GREY_700),
+                            date_picker_button,
+                            start_time_button,
+                            end_time_button,
+                            apply_button,
+                            clear_button
+                        ], 
+                        spacing=15, 
+                        alignment=ft.MainAxisAlignment.START,
+                        vertical_alignment=ft.CrossAxisAlignment.CENTER)
+                    )
+                ),
                 padding=ft.padding.symmetric(horizontal=30)
             ),
             # Result count
@@ -285,7 +440,7 @@ def show_dashboard(page, user_id, role, name):
                     size=13,
                     color=ft.Colors.GREY_600
                 ),
-                padding=ft.padding.symmetric(horizontal=30, vertical=5)
+                padding=ft.padding.symmetric(horizontal=30, vertical=10)
             ),
             # Scrollable classroom grid
             ft.Container(
