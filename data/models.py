@@ -400,6 +400,92 @@ class ReservationModel:
         db.disconnect()
         return classrooms
 
+    @staticmethod
+    def create_reservation(classroom_id, user_id, reservation_date, start_time, end_time, purpose):
+        """Create a new reservation and notify admins"""
+        db.connect()
+        query = """
+            INSERT INTO reservations 
+            (classroom_id, user_id, reservation_date, start_time, end_time, purpose)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        reservation_id = db.execute_query(
+            query, 
+            (classroom_id, user_id, reservation_date, start_time, end_time, purpose)
+        )
+        
+        # Get room name for notification
+        room_query = "SELECT room_name FROM classrooms WHERE id = %s"
+        room = db.fetch_one(room_query, (classroom_id,))
+        
+        db.disconnect()
+        
+        # Notify admins about new reservation
+        if room and reservation_id:
+            from data.models import NotificationModel
+            NotificationModel.notify_new_reservation(reservation_id, room['room_name'])
+        
+        return reservation_id
+
+    @staticmethod
+    def approve_reservation(reservation_id):
+        """Approve a reservation and notify the faculty member"""
+        db.connect()
+        
+        # Get reservation details before updating
+        query = """
+            SELECT r.user_id, c.room_name 
+            FROM reservations r
+            JOIN classrooms c ON r.classroom_id = c.id
+            WHERE r.id = %s
+        """
+        reservation = db.fetch_one(query, (reservation_id,))
+        
+        # Update status
+        update_query = "UPDATE reservations SET status = 'approved' WHERE id = %s"
+        db.execute_query(update_query, (reservation_id,))
+        db.disconnect()
+        
+        # Notify faculty member
+        if reservation:
+            from data.models import NotificationModel
+            NotificationModel.notify_reservation_approved(
+                reservation['user_id'], 
+                reservation_id, 
+                reservation['room_name']
+            )
+        
+        return True
+
+    @staticmethod
+    def reject_reservation(reservation_id):
+        """Reject a reservation and notify the faculty member"""
+        db.connect()
+        
+        # Get reservation details before updating
+        query = """
+            SELECT r.user_id, c.room_name 
+            FROM reservations r
+            JOIN classrooms c ON r.classroom_id = c.id
+            WHERE r.id = %s
+        """
+        reservation = db.fetch_one(query, (reservation_id,))
+        
+        # Update status
+        update_query = "UPDATE reservations SET status = 'rejected' WHERE id = %s"
+        db.execute_query(update_query, (reservation_id,))
+        db.disconnect()
+        
+        # Notify faculty member
+        if reservation:
+            from data.models import NotificationModel
+            NotificationModel.notify_reservation_rejected(
+                reservation['user_id'], 
+                reservation_id, 
+                reservation['room_name']
+            )
+        
+        return True
 class ActivityLogModel:
     @staticmethod
     def log_activity(user_id, action, details=None, ip_address=None):
@@ -411,3 +497,108 @@ class ActivityLogModel:
         """
         db.execute_query(query, (user_id, action, details, ip_address))
         db.disconnect()
+
+class NotificationModel:
+    @staticmethod
+    def create_notification(user_id, message, reservation_id=None):
+        """Create a new notification for a user"""
+        db.connect()
+        query = """
+            INSERT INTO notifications (user_id, message, reservation_id)
+            VALUES (%s, %s, %s)
+        """
+        notification_id = db.execute_query(query, (user_id, message, reservation_id))
+        db.disconnect()
+        return notification_id
+    
+    @staticmethod
+    def get_user_notifications(user_id, limit=5, unread_only=False):
+        """Get notifications for a user"""
+        db.connect()
+        
+        if unread_only:
+            query = """
+                SELECT * FROM notifications
+                WHERE user_id = %s AND is_read = FALSE
+                ORDER BY created_at DESC
+                LIMIT %s
+            """
+        else:
+            query = """
+                SELECT * FROM notifications
+                WHERE user_id = %s
+                ORDER BY created_at DESC
+                LIMIT %s
+            """
+        
+        notifications = db.fetch_all(query, (user_id, limit))
+        db.disconnect()
+        return notifications if notifications else []
+    
+    @staticmethod
+    def get_unread_count(user_id):
+        """Get count of unread notifications for a user"""
+        db.connect()
+        query = """
+            SELECT COUNT(*) as count 
+            FROM notifications
+            WHERE user_id = %s AND is_read = FALSE
+        """
+        result = db.fetch_one(query, (user_id,))
+        db.disconnect()
+        return result['count'] if result else 0
+    
+    @staticmethod
+    def mark_as_read(notification_id):
+        """Mark a notification as read"""
+        db.connect()
+        query = "UPDATE notifications SET is_read = TRUE WHERE id = %s"
+        db.execute_query(query, (notification_id,))
+        db.disconnect()
+        return True
+    
+    @staticmethod
+    def mark_all_as_read(user_id):
+        """Mark all notifications as read for a user"""
+        db.connect()
+        query = "UPDATE notifications SET is_read = TRUE WHERE user_id = %s"
+        db.execute_query(query, (user_id,))
+        db.disconnect()
+        return True
+    
+    @staticmethod
+    def delete_notification(notification_id):
+        """Delete a notification"""
+        db.connect()
+        query = "DELETE FROM notifications WHERE id = %s"
+        db.execute_query(query, (notification_id,))
+        db.disconnect()
+        return True
+    
+    @staticmethod
+    def notify_new_reservation(reservation_id, room_name):
+        """Notify all admins about a new reservation"""
+        db.connect()
+        
+        # Get all admin users
+        admin_query = "SELECT id FROM users WHERE role = 'admin' AND is_active = TRUE"
+        admins = db.fetch_all(admin_query)
+        
+        if admins:
+            message = f"New Reservation for {room_name}"
+            for admin in admins:
+                NotificationModel.create_notification(admin['id'], message, reservation_id)
+        
+        db.disconnect()
+    
+    @staticmethod
+    def notify_reservation_approved(user_id, reservation_id, room_name):
+        """Notify faculty member that their reservation was approved"""
+        message = f"Reservation for {room_name} approved"
+        return NotificationModel.create_notification(user_id, message, reservation_id)
+    
+    @staticmethod
+    def notify_reservation_rejected(user_id, reservation_id, room_name):
+        """Notify faculty member that their reservation was rejected"""
+        message = f"Reservation for {room_name} rejected"
+        return NotificationModel.create_notification(user_id, message, reservation_id)

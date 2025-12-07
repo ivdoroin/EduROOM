@@ -1,7 +1,8 @@
 import flet as ft
+from data.models import NotificationModel
 
 def create_app_header(page, user_id, role, name, current_page="classrooms"):
-    """Create the application header with navigation and user drawer"""
+    """Create the application header with navigation, notifications, and user drawer"""
     
     # ==================== DRAWER ====================
     def logout_click(e):
@@ -52,6 +53,149 @@ def create_app_header(page, user_id, role, name, current_page="classrooms"):
         ],
     )
     
+    # ==================== NOTIFICATIONS ====================
+    def go_to_reservations(notif_id=None):
+        """Navigate to reservations page and mark notification as read"""
+        if notif_id:
+            NotificationModel.mark_as_read(notif_id)
+        
+        if role == "faculty":
+            from views.my_reservations_view import show_my_reservations
+            show_my_reservations(page, user_id, role, name)
+        elif role == "admin":
+            from views.admin_view import show_admin_panel
+            show_admin_panel(page, user_id, role, name)
+    
+    def create_notification_items():
+        """Create notification menu items"""
+        notifications = NotificationModel.get_user_notifications(user_id, limit=5)
+        unread_count = NotificationModel.get_unread_count(user_id)
+        
+        menu_items = []
+        
+        # Header with unread count
+        menu_items.append(
+            ft.PopupMenuItem(
+                content=ft.Container(
+                    content=ft.Row([
+                        ft.Text("Notifications", size=16, weight=ft.FontWeight.BOLD),
+                        ft.Container(
+                            content=ft.Text(str(unread_count), size=12, color="white", weight=ft.FontWeight.BOLD),
+                            bgcolor="#F44336",
+                            border_radius=10,
+                            padding=ft.padding.symmetric(horizontal=8, vertical=2),
+                            visible=unread_count > 0,
+                        )
+                    ], spacing=10),
+                    padding=ft.padding.only(left=10, top=5, bottom=5)
+                ),
+                disabled=True,
+            )
+        )
+        
+        menu_items.append(ft.Divider(height=1))
+        
+        if not notifications:
+            menu_items.append(
+                ft.PopupMenuItem(
+                    content=ft.Container(
+                        content=ft.Column([
+                            ft.Icon(ft.Icons.NOTIFICATIONS_NONE, size=40, color="grey"),
+                            ft.Text("No notifications", color="grey", size=14)
+                        ], horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=10),
+                        padding=20,
+                        width=320,
+                    ),
+                    disabled=True,
+                )
+            )
+        else:
+            for notif in notifications:
+                # Determine icon and color based on notification type
+                if "approved" in notif['message'].lower():
+                    icon = ft.Icons.CHECK_CIRCLE
+                    icon_color = "#4CAF50"
+                elif "rejected" in notif['message'].lower():
+                    icon = ft.Icons.CANCEL
+                    icon_color = "#F44336"
+                else:  # New reservation
+                    icon = ft.Icons.EVENT_NOTE
+                    icon_color = "#2196F3"
+                
+                # Format timestamp
+                time_str = notif['created_at'].strftime('%b %d, %H:%M') if hasattr(notif['created_at'], 'strftime') else str(notif['created_at'])
+                
+                notif_content = ft.Container(
+                    content=ft.Row([
+                        ft.Icon(icon, size=20, color=icon_color),
+                        ft.Column([
+                            ft.Text(
+                                notif['message'], 
+                                size=13, 
+                                weight=ft.FontWeight.BOLD if not notif['is_read'] else ft.FontWeight.NORMAL
+                            ),
+                            ft.Text(time_str, size=11, color="grey")
+                        ], spacing=2, expand=True)
+                    ], spacing=10),
+                    padding=ft.padding.symmetric(horizontal=10, vertical=8),
+                    bgcolor=ft.Colors.BLUE_50 if not notif['is_read'] else None,
+                    width=320,
+                    border_radius=5,
+                )
+                
+                menu_items.append(
+                    ft.PopupMenuItem(
+                        content=notif_content,
+                        on_click=lambda e, nid=notif['id']: go_to_reservations(nid)
+                    )
+                )
+        
+        # Divider and View All button
+        menu_items.append(ft.Divider(height=1))
+        menu_items.append(
+            ft.PopupMenuItem(
+                content=ft.Container(
+                    content=ft.Row([
+                        ft.Text("View All", size=14, weight=ft.FontWeight.BOLD, color="#2196F3"),
+                        ft.Icon(ft.Icons.ARROW_FORWARD, size=18, color="#2196F3")
+                    ], alignment=ft.MainAxisAlignment.CENTER, spacing=5),
+                    padding=5,
+                ),
+                on_click=lambda e: go_to_reservations()
+            )
+        )
+        
+        return menu_items
+    
+    # Notification badge - simple red dot
+    notif_badge = ft.Container(
+        width=10,
+        height=10,
+        bgcolor="#F44336",
+        border_radius=5,
+        visible=False,
+        top=2,
+        right=2,
+    )
+    
+    # Update badge visibility
+    unread_count = NotificationModel.get_unread_count(user_id)
+    notif_badge.visible = unread_count > 0
+    
+    # Create notification button with badge - wrapped in container with padding for badge space
+    notif_button = ft.PopupMenuButton(
+        content=ft.Container(
+            content=ft.Stack([
+                ft.Icon(ft.Icons.NOTIFICATIONS, size=24),
+                notif_badge
+            ]),
+            padding=ft.padding.only(top=5, right=5),  # Add padding so badge isn't cut off
+        ),
+        items=create_notification_items(),
+        tooltip="Notifications",
+        menu_position=ft.PopupMenuPosition.UNDER,  # Position menu below the button
+    )
+    
     # ==================== HEADER ====================
     logo = ft.Image(
         src="../assets/images/EduROOM-logo.png", 
@@ -63,7 +207,7 @@ def create_app_header(page, user_id, role, name, current_page="classrooms"):
         from views.dashboard_view import show_dashboard
         show_dashboard(page, user_id, role, name)
 
-    def go_reservations(e):
+    def go_reservations_nav(e):
         if role == "faculty":
             from views.my_reservations_view import show_my_reservations
             show_my_reservations(page, user_id, role, name)
@@ -93,7 +237,7 @@ def create_app_header(page, user_id, role, name, current_page="classrooms"):
             ),
             ft.TextButton(
                 "Reservations", 
-                on_click=go_reservations, 
+                on_click=go_reservations_nav, 
                 disabled=not reservations_enabled,
                 style=active_style if current_page == "reservations" else None
             ),
@@ -115,7 +259,7 @@ def create_app_header(page, user_id, role, name, current_page="classrooms"):
     )
 
     header_row = ft.Row(
-        [logo, navbar_block, settings_btn],
+        [logo, navbar_block, notif_button, settings_btn],
         alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         vertical_alignment=ft.CrossAxisAlignment.CENTER
     )
