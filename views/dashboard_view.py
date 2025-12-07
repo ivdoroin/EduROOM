@@ -76,11 +76,17 @@ def show_dashboard(page, user_id, role, name):
         )
 
         if role in ("admin", "student"):
-            reserve_btn = ft.ElevatedButton(
+            reserve_btn = ft.OutlinedButton(
                 "Reserve",
                 disabled=True,
                 height=35,
-                expand=True
+                expand=True,
+                style=ft.ButtonStyle(
+                    shape=ft.RoundedRectangleBorder(radius=5),
+                    side=ft.BorderSide(2, ft.Colors.GREY_400),  
+                    color=ft.Colors.with_opacity(1, "#FFFFFF"),
+                    bgcolor=ft.Colors.GREY_400,  
+                )
             )
 
         schedule_btn = ft.OutlinedButton(
