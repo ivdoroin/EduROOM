@@ -109,6 +109,11 @@ def show_login(page):
         if not email or not id_number or not password:
             show_error("Please fill in all fields")
             return
+         # Check if account is deactivated
+        is_active, message = UserModel.check_account_status(email, id_number)
+        if not is_active:
+            show_error(message)
+            return
         
         page.update()
         

@@ -67,6 +67,19 @@ class UserModel:
         db.disconnect()
         return result is not None
     
+    # In models.py - add new method
+    @staticmethod
+    def check_account_status(email, id_number):
+        """Check if account exists but is disabled"""
+        db.connect()
+        query = "SELECT is_active FROM users WHERE email = %s AND id_number = %s"
+        user = db.fetch_one(query, (email, id_number))
+        db.disconnect()
+        
+        if user and not user['is_active']:
+            return False, "Your account has been deactivated. Please contact an administrator."
+        return True, None
+    
     @staticmethod
     def change_password(user_id, current_password, new_password):
         """Change user password after verifying current password"""
@@ -96,7 +109,172 @@ class UserModel:
         
         return True, "Password changed successfully"
 
-
+    # ==================== USER MANAGEMENT (Admin) ====================
+    
+    @staticmethod
+    def get_all_users():
+        """Get all users for admin management"""
+        db.connect()
+        query = """
+            SELECT id, email, id_number, role, full_name, is_active, created_at
+            FROM users
+            ORDER BY created_at DESC
+        """
+        users = db.fetch_all(query)
+        db.disconnect()
+        return users if users else []
+    
+    @staticmethod
+    def get_users_by_role(role):
+        """Get users filtered by role"""
+        db.connect()
+        query = """
+            SELECT id, email, id_number, role, full_name, is_active, created_at
+            FROM users
+            WHERE role = %s
+            ORDER BY created_at DESC
+        """
+        users = db.fetch_all(query, (role,))
+        db.disconnect()
+        return users if users else []
+    
+    @staticmethod
+    def toggle_user_status(user_id):
+        """Toggle user active/inactive status"""
+        db.connect()
+        # First get current status
+        query = "SELECT is_active FROM users WHERE id = %s"
+        user = db.fetch_one(query, (user_id,))
+        
+        if not user:
+            db.disconnect()
+            return False, "User not found"
+        
+        new_status = not user['is_active']
+        update_query = "UPDATE users SET is_active = %s WHERE id = %s"
+        result = db.execute_query(update_query, (new_status, user_id))
+        db.disconnect()
+        
+        if result is None:
+            return False, "Error updating user status"
+        
+        status_text = "activated" if new_status else "deactivated"
+        return True, f"User {status_text} successfully"
+    
+    @staticmethod
+    def delete_user(user_id):
+        """Permanently delete a user (use with caution)"""
+        db.connect()
+        
+        # Check if user exists
+        check_query = "SELECT id, full_name FROM users WHERE id = %s"
+        user = db.fetch_one(check_query, (user_id,))
+        
+        if not user:
+            db.disconnect()
+            return False, "User not found"
+        
+        # Delete the user (cascades to reservations due to FK)
+        delete_query = "DELETE FROM users WHERE id = %s"
+        result = db.execute_query(delete_query, (user_id,))
+        db.disconnect()
+        
+        if result is None:
+            return False, "Error deleting user"
+        
+        return True, f"User '{user['full_name']}' deleted successfully"
+    
+    @staticmethod
+    def update_user_role(user_id, new_role):
+        """Update a user's role"""
+        db.connect()
+        
+        # Validate role
+        valid_roles = ['admin', 'faculty', 'student']
+        if new_role not in valid_roles:
+            db.disconnect()
+            return False, f"Invalid role. Must be one of: {', '.join(valid_roles)}"
+        
+        update_query = "UPDATE users SET role = %s WHERE id = %s"
+        result = db.execute_query(update_query, (new_role, user_id))
+        db.disconnect()
+        
+        if result is None:
+            return False, "Error updating user role"
+        
+        return True, f"User role updated to {new_role}"
+    
+    @staticmethod
+    def update_user_profile(user_id, full_name=None, email=None):
+        """Update user profile fields"""
+        db.connect()
+        
+        updates = []
+        params = []
+        
+        if full_name:
+            updates.append("full_name = %s")
+            params.append(full_name)
+        
+        if email:
+            # Check if email already exists for another user
+            check_query = "SELECT id FROM users WHERE email = %s AND id != %s"
+            existing = db.fetch_one(check_query, (email, user_id))
+            if existing:
+                db.disconnect()
+                return False, "Email already in use by another user"
+            updates.append("email = %s")
+            params.append(email)
+        
+        if not updates:
+            db.disconnect()
+            return False, "No fields to update"
+        
+        params.append(user_id)
+        update_query = f"UPDATE users SET {', '.join(updates)} WHERE id = %s"
+        result = db.execute_query(update_query, tuple(params))
+        db.disconnect()
+        
+        if result is None:
+            return False, "Error updating profile"
+        
+        return True, "Profile updated successfully"
+    
+    @staticmethod
+    def admin_reset_password(user_id, new_password):
+        """Admin reset password without requiring current password"""
+        db.connect()
+        
+        new_password_hash = hash_password(new_password)
+        update_query = "UPDATE users SET password_hash = %s WHERE id = %s"
+        result = db.execute_query(update_query, (new_password_hash, user_id))
+        db.disconnect()
+        
+        if result is None:
+            return False, "Error resetting password"
+        
+        return True, "Password reset successfully"
+    
+    @staticmethod
+    def get_user_stats():
+        """Get user statistics for admin dashboard"""
+        db.connect()
+        query = """
+            SELECT 
+                COUNT(*) as total_users,
+                SUM(CASE WHEN role = 'admin' THEN 1 ELSE 0 END) as admin_count,
+                SUM(CASE WHEN role = 'faculty' THEN 1 ELSE 0 END) as faculty_count,
+                SUM(CASE WHEN role = 'student' THEN 1 ELSE 0 END) as student_count,
+                SUM(CASE WHEN is_active = TRUE THEN 1 ELSE 0 END) as active_count,
+                SUM(CASE WHEN is_active = FALSE THEN 1 ELSE 0 END) as inactive_count
+            FROM users
+        """
+        result = db.fetch_one(query)
+        db.disconnect()
+        return result if result else {
+            'total_users': 0, 'admin_count': 0, 'faculty_count': 0,
+            'student_count': 0, 'active_count': 0, 'inactive_count': 0
+        }
 class ClassroomModel:
     @staticmethod
     def get_all_classrooms():

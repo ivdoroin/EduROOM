@@ -220,8 +220,14 @@ def create_app_header(page, user_id, role, name, current_page="classrooms"):
             from views.analytics_view import show_analytics_dashboard
             show_analytics_dashboard(page, user_id, role, name)
 
+    def go_users(e):
+        if role == "admin":
+            from views.admin_users_view import show_admin_users
+            show_admin_users(page, user_id, role, name)
+
     reservations_enabled = role in ("faculty", "admin")
     analytics_enabled = role == "admin"
+    users_enabled = role == "admin"
 
     active_style = ft.ButtonStyle(
         color=ft.Colors.BLUE,
@@ -240,6 +246,12 @@ def create_app_header(page, user_id, role, name, current_page="classrooms"):
                 on_click=go_reservations_nav, 
                 disabled=not reservations_enabled,
                 style=active_style if current_page == "reservations" else None
+            ),
+            ft.TextButton(
+                "Users", 
+                on_click=go_users, 
+                disabled=not users_enabled,
+                style=active_style if current_page == "users" else None
             ),
             ft.TextButton(
                 "Analytics", 
