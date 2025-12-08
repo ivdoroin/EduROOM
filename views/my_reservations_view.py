@@ -320,6 +320,9 @@ def show_my_reservations(page, user_id, role, name):
     
     def create_reservation_card(res):
         """Create a reservation card following admin panel format"""
+        # Debug: Print the reservation data to see what's being returned
+        print(f"Reservation data: {res}")
+        print(f"Image URL: {res.get('image_url')}")
         
         status_config = {
             "pending": {"color": "orange", "icon": ICONS.HOURGLASS_EMPTY, "can_edit": True, "can_cancel": True},
@@ -337,8 +340,14 @@ def show_my_reservations(page, user_id, role, name):
         end = str(res["end_time"])[:5]
         
         # Create room image path
-        image_src = res.get("image_url") if res.get("image_url") else "../assets/images/classroom-default.png"
-        
+        image_url = res.get("image_url")
+        if image_url:
+            # If it's already a full path, use it as-is
+            image_src = image_url
+        else:
+            # Default image
+            image_src = "assets/images/classroom-default.png"
+
         # Left section - Room image
         left_section = ft.Container(
             content=ft.Image(
