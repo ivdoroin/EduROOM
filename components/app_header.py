@@ -258,6 +258,10 @@ def create_app_header(page, user_id, role, name, current_page="classrooms"):
         color="#FFFFFF",
     )
 
+    disabled_style = ft.ButtonStyle(
+        color="#666666",  
+    )
+
     navbar_block = ft.Row(
         [
             ft.TextButton(
@@ -269,20 +273,20 @@ def create_app_header(page, user_id, role, name, current_page="classrooms"):
                 "Reservations", 
                 on_click=go_reservations_nav, 
                 disabled=not reservations_enabled,
-                style=active_style if current_page == "reservations" else inactive_style
+                style=active_style if current_page == "reservations" else (inactive_style if reservations_enabled else disabled_style),
             ),
             ft.TextButton(
                 "Users", 
                 on_click=go_users, 
                 disabled=not users_enabled,
-                style=active_style if current_page == "users" else inactive_style
+                style=active_style if current_page == "users" else (inactive_style if users_enabled else disabled_style)
             ),
             ft.TextButton(
                 "Analytics", 
                 on_click=go_analytics, 
                 disabled=not analytics_enabled,
-                style=active_style if current_page == "analytics" else inactive_style
-            )
+                style=active_style if current_page == "analytics" else (inactive_style if analytics_enabled else disabled_style)
+            ),
         ],
         expand=True,
         alignment=ft.MainAxisAlignment.SPACE_AROUND,
