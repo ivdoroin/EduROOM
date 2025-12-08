@@ -7,13 +7,21 @@ Displays comprehensive data visualizations and insights for admin users
 import flet as ft
 from utils.config import ICONS, COLORS
 from data.analytics import AnalyticsModel
+from utils.security import ensure_authenticated, get_csrf_token, touch_session
 
 def show_analytics_dashboard(page, user_id, role, name):
     """Display analytics dashboard with charts and insights"""
     
+    # Session guard
+    if not ensure_authenticated(page):
+        return
+    
     # Only admin can access analytics
     if role != "admin":
         return
+    
+    # Optional
+    # csrf_token = get_csrf_token(page)
     
     def back_to_dashboard(e):
         from views.dashboard_view import show_dashboard

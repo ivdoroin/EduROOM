@@ -2,6 +2,8 @@ import flet as ft
 from utils.config import ICONS, COLORS
 from data.models import UserModel, ActivityLogModel
 from views.dashboard_view import show_dashboard
+from utils.security import touch_session, get_csrf_token
+
 
 def show_login(page):
     """Display the enhanced login page with database authentication"""
@@ -98,6 +100,15 @@ def show_login(page):
         error_text.visible = False
         page.update()
 
+    # --- Show notice if session expired due to inactivity ---
+    login_notice = page.session.get("login_notice")
+    if login_notice:
+        # Reuse your existing error UI
+        show_error(login_notice)
+        # Clear it so it doesn't appear again next time
+        page.session.set("login_notice", None)
+
+
     def login_click(e):
         hide_error()
         
@@ -109,7 +120,8 @@ def show_login(page):
         if not email or not id_number or not password:
             show_error("Please fill in all fields")
             return
-         # Check if account is deactivated
+
+        # Check if account is deactivated
         is_active, message = UserModel.check_account_status(email, id_number)
         if not is_active:
             show_error(message)
@@ -142,13 +154,20 @@ def show_login(page):
         if user:
             # Log the login activity
             ActivityLogModel.log_activity(user['id'], "User logged in")
+
+            # (Optional but nice) clear any stale session data
+            page.session.clear()
             
             # Store user info in page session
             page.session.set("user_id", user['id'])
             page.session.set("user_role", user['role'])
             page.session.set("user_name", user['full_name'])
             page.session.set("user_photo", user.get('photo'))
-            
+
+            # NEW: initialize session activity + CSRF token
+            touch_session(page)       # sets last_activity
+            get_csrf_token(page)      # generates & stores action_token
+
             # Login successful - navigate to dashboard
             show_dashboard(page, user['id'], user['role'], user['full_name'])
         else:
@@ -165,7 +184,6 @@ def show_login(page):
             # )
 
             show_error("Invalid credentials. Please check your email, ID, and password.")
-
 
     # Logo section - responsive sizing
     logo = ft.Container(
