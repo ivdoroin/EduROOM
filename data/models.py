@@ -430,7 +430,7 @@ class ReservationModel:
         """Get all reservations (for admin)"""
         db.connect()
         query = """
-            SELECT r.*, c.room_name, c.building, u.full_name, u.email
+            SELECT r.*, c.room_name, c.building, c.image_url, u.full_name, u.email
             FROM reservations r
             JOIN classrooms c ON r.classroom_id = c.id
             JOIN users u ON r.user_id = u.id
