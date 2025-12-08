@@ -152,6 +152,10 @@ EduROOM follows a modular, layered architecture:
 
 # Database Model (ERD)
 
+The EduROOM database consists of five core entities: **Users**, **Classrooms**, **Reservations**, **Notifications**, and **Activity Logs**.  
+Users can create reservations for classrooms, receive notifications about their requests, and generate activity logs based on system actions. Classrooms can have multiple reservations, and each reservation may trigger related notifications. This structure supports secure authentication, room scheduling, and real-time system updates.
+
+
 *(Insert ERD image in your repo and update the path below)*
 
 ![ERD Diagram](assets/erd/EduROOM_ERD.png)
