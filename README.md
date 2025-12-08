@@ -218,4 +218,109 @@ python tests/test_validation.py
 
 ✔ ALL TESTS PASSED!
 
+# Real-Time WebSocket Setup & Testing
 
+EduROOM uses a dedicated **WebSocket server** to provide real-time updates for:
+
+- New reservation requests  
+- Admin approvals and rejections  
+- Live analytics dashboard updates  
+- User notifications  
+
+This integration fulfills the system’s **Emerging Technology Requirement**.
+
+---
+
+## 1. Start the WebSocket Server
+
+In a separate terminal window, run:
+
+python websocket_server.py
+
+
+**Expected output:**
+WebSocket server started on ws://localhost:8765
+Waiting for clients...
+
+
+> The WebSocket server must remain running for real-time updates to function properly.
+
+---
+
+## 2. Launch the Main Application
+
+Open another terminal window and run:
+
+python main.py
+
+
+**When the client connects successfully, the WebSocket server displays:**
+Client connected: 127.0.0.1
+
+
+---
+
+## 3. Testing Real-Time Features
+
+### ✔ Test A — New Reservation Appears Instantly on Admin Dashboard
+
+1. Log in as **Faculty**.  
+2. Submit a new reservation request.  
+3. Log in as **Admin** in another application window.  
+4. The new request should appear instantly (within <100 ms) **without refreshing**.
+
+**WebSocket server output:**
+Broadcasting message: new_reservation
+
+
+**Admin client output:**
+Received message: new_reservation
+
+---
+
+### ✔ Test B — Admin Approval/Rejection Notifies Faculty Immediately
+
+1. Admin approves or rejects the reservation.  
+2. Faculty receives a **real-time notification** in the UI.
+
+**WebSocket server output:**
+Broadcasting message: reservation_update
+
+**Faculty client output:**
+Received message: reservation_update
+
+
+---
+
+### ✔ Test C — Analytics Dashboard Auto-Refresh
+
+1. Open the **Analytics Dashboard** as Admin.  
+2. Trigger reservation changes from a Faculty account.  
+3. The analytics dashboard automatically refreshes **without reloading** the page.
+
+---
+
+## 4. Expected Performance
+
+| Metric | Target Performance |
+|--------|--------------------|
+| Local WebSocket message delay | 10–50 ms |
+| Guaranteed max delay | <500 ms |
+
+EduROOM’s WebSocket system ensures **true real-time responsiveness**, meeting all **SRS performance requirements**.
+
+---
+
+## 5. Troubleshooting
+
+| Issue | Solution |
+|-------|-----------|
+| No real-time updates | Ensure `websocket_server.py` is running |
+| Connection refused | Check that port `8765` is free |
+| No client connection | Verify the WebSocket URL: `ws://localhost:8765` |
+| Updates delayed | Restart both the WebSocket server and the app |
+| Two users not syncing | Restart each app window to reconnect clients |
+
+---
+
+**© EduROOM Project 2025**
