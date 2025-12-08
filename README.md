@@ -152,15 +152,6 @@ EduROOM follows a modular, layered architecture:
 
 # Database Model (ERD)
 
-**Main Entities:**
-- Users  
-- Classrooms  
-- Classroom Images  
-- Reservations  
-- Academic Schedules  
-- Notifications  
-- Activity Logs  
-
 *(Insert ERD image in your repo and update the path below)*
 
 ![ERD Diagram](assets/erd/EduROOM_ERD.png)
