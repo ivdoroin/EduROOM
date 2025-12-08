@@ -205,11 +205,6 @@ def show_admin_panel(page, user_id, role, name):
         ],
         expand=True
     )
-
-    refresh_button = ft.Row(
-        [ft.IconButton(ICONS.REFRESH, on_click=lambda e: refresh_panel(), tooltip="Refresh")],
-        alignment=ft.MainAxisAlignment.END
-    )
     
     page.controls.clear()
     page.add(
@@ -219,7 +214,7 @@ def show_admin_panel(page, user_id, role, name):
                 ft.Container(
                     ft.Text("Manage Reservations", size=32, color="#4D4848",
                             font_family="Montserrat Bold", weight=ft.FontWeight.BOLD),
-                    padding=20, width=850, alignment=ft.alignment.center
+                            padding=5, width=850, alignment=ft.alignment.center
                 ),
                 ft.Container(
                     ft.Row([tabs], alignment=ft.MainAxisAlignment.CENTER),
