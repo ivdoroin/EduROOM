@@ -193,7 +193,7 @@ class UserModel:
         """Get all users for admin management"""
         db.connect()
         query = """
-            SELECT id, email, id_number, role, full_name, is_active, created_at
+            SELECT id, email, id_number, role, full_name, is_active, created_at, photo
             FROM users
             ORDER BY created_at DESC
         """
@@ -206,7 +206,7 @@ class UserModel:
         """Get users filtered by role"""
         db.connect()
         query = """
-            SELECT id, email, id_number, role, full_name, is_active, created_at
+            SELECT id, email, id_number, role, full_name, is_active, created_at, photo
             FROM users
             WHERE role = %s
             ORDER BY created_at DESC

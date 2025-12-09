@@ -67,9 +67,9 @@ def show_admin_users(page, user_id, role, name):
     
     
     # ==================== CREATE USER MODAL ====================
-    new_email = ft.TextField(label="Email", hint_text="user@cspc.edu.ph", width=350)
+    new_email = ft.TextField(label="Email", hint_text="juan@cspc.edu.ph", width=350)
     new_id_number = ft.TextField(label="ID Number", hint_text="e.g., 20231001", width=350)
-    new_full_name = ft.TextField(label="Full Name", hint_text="e.g., John Doe", width=350)
+    new_full_name = ft.TextField(label="Full Name", hint_text="e.g., Juan Dela Cruz", width=350)
     new_password = ft.TextField(label="Password", password=True, can_reveal_password=True, width=350)
     new_role = ft.Dropdown(
         label="Role",
@@ -473,7 +473,7 @@ def show_admin_users(page, user_id, role, name):
         is_self = user['id'] == user_id
         
         # Get user photo or use default
-        user_photo = user.get('photo') or "assets/images/default-user.png"
+        user_photo = user.get("photo") or "../assets/images/default-user.png"
         
         return ft.Card(
             content=ft.Container(
